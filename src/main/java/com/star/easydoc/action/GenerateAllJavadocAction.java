@@ -117,6 +117,7 @@ public class GenerateAllJavadocAction extends AnAction {
         generateAllView.getMethodCheckBox().setSelected(Optional.ofNullable(config.getGenAllMethod()).orElse(false));
         generateAllView.getFieldCheckBox().setSelected(Optional.ofNullable(config.getGenAllField()).orElse(false));
         generateAllView.getInnerClassCheckBox().setSelected(Optional.ofNullable(config.getGenAllInnerClass()).orElse(false));
+        generateAllView.getRecordComponentCheckBox().setSelected(Optional.ofNullable(config.getGenAllRecordComponent()).orElse(true));
 
         if (generateAllView.showAndGet()) {
 
@@ -124,14 +125,17 @@ public class GenerateAllJavadocAction extends AnAction {
             boolean isGenMethod = generateAllView.getMethodCheckBox().isSelected();
             boolean isGenField = generateAllView.getFieldCheckBox().isSelected();
             boolean isGenInnerClass = generateAllView.getInnerClassCheckBox().isSelected();
+            boolean isGenRecordComponent = generateAllView.getRecordComponentCheckBox().isSelected();
 
             config.setGenAllClass(isGenClass);
             config.setGenAllMethod(isGenMethod);
             config.setGenAllField(isGenField);
             config.setGenAllInnerClass(isGenInnerClass);
+            config.setGenAllRecordComponent(isGenRecordComponent);
 
             // 生成注释
-            genClassJavadoc(project, (PsiClass)psiElement, isGenClass, isGenMethod, isGenField, isGenInnerClass);
+            genClassJavadoc(project, (PsiClass)psiElement, isGenClass, isGenMethod, isGenField, isGenInnerClass,
+                isGenRecordComponent);
         }
     }
 
@@ -151,11 +155,13 @@ public class GenerateAllJavadocAction extends AnAction {
      * @param isGenMethod 是否生成方法
      * @param isGenField 是否生成属性
      * @param isGenInnerClass 是否生成内部类
+     * @param isGenRecordComponent 是否生成Record组件
      */
     private void genClassJavadoc(Project project, PsiClass psiClass, boolean isGenClass, boolean isGenMethod, boolean isGenField,
-        boolean isGenInnerClass) {
-        // 生成类注释
-        if (isGenClass) {
+        boolean isGenInnerClass, boolean isGenRecordComponent) {
+        // Record类：勾选了"Record组件"则也生成类注释（类注释会自动注入@param标签）
+        boolean shouldGenClass = isGenClass || (psiClass.isRecord() && isGenRecordComponent);
+        if (shouldGenClass) {
             saveJavadoc(project, psiClass);
         }
         // 方法
@@ -165,7 +171,8 @@ public class GenerateAllJavadocAction extends AnAction {
         // 递归遍历子类
         if (isGenInnerClass) {
             PsiClass[] innerClasses = psiClass.getInnerClasses();
-            Arrays.stream(innerClasses).forEach(clz -> genClassJavadoc(project, clz, isGenClass, isGenMethod, isGenField, isGenInnerClass));
+            Arrays.stream(innerClasses).forEach(
+                clz -> genClassJavadoc(project, clz, isGenClass, isGenMethod, isGenField, isGenInnerClass, isGenRecordComponent));
         }
     }
 

@@ -174,6 +174,10 @@ public class EasyDocConfig {
     private Boolean genAllField;
     /** 批量生成是否递归内部类 */
     private Boolean genAllInnerClass;
+    /** 批量生成是否生成Record组件注释 */
+    private Boolean genAllRecordComponent = true;
+    /** Record组件模板配置 */
+    private TemplateConfig recordComponentTemplateConfig = new TemplateConfig();
     /** 排除的字段名列表（逗号分隔，如：serialVersionUID,log,logger） */
     private String excludeFieldNames = "serialVersionUID";
 
@@ -617,6 +621,25 @@ public class EasyDocConfig {
 
     public void setGenAllInnerClass(Boolean genAllInnerClass) {
         this.genAllInnerClass = genAllInnerClass;
+    }
+
+    public Boolean getGenAllRecordComponent() {
+        return genAllRecordComponent;
+    }
+
+    public void setGenAllRecordComponent(Boolean genAllRecordComponent) {
+        this.genAllRecordComponent = genAllRecordComponent;
+    }
+
+    public TemplateConfig getRecordComponentTemplateConfig() {
+        if (recordComponentTemplateConfig == null) {
+            recordComponentTemplateConfig = new TemplateConfig();
+        }
+        return recordComponentTemplateConfig;
+    }
+
+    public void setRecordComponentTemplateConfig(TemplateConfig recordComponentTemplateConfig) {
+        this.recordComponentTemplateConfig = recordComponentTemplateConfig;
     }
 
     public String getExcludeFieldNames() {

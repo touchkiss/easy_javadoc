@@ -16,6 +16,7 @@ public class GenerateAllView extends DialogWrapper {
     private JCheckBox classCheckBox;
     private JPanel panel;
     private JCheckBox innerClassCheckBox;
+    private JCheckBox recordComponentCheckBox;
 
     public GenerateAllView() {
         super(false);
@@ -43,6 +44,10 @@ public class GenerateAllView extends DialogWrapper {
 
     public JCheckBox getInnerClassCheckBox() {
         return innerClassCheckBox;
+    }
+
+    public JCheckBox getRecordComponentCheckBox() {
+        return recordComponentCheckBox;
     }
 
     public JPanel getPanel() {

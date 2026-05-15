@@ -50,6 +50,8 @@ public class EasyDocConfigComponent implements PersistentStateComponent<EasyDocC
             config.setKdocMethodTemplateConfig(new TemplateConfig());
             config.setFieldTemplateConfig(new TemplateConfig());
             config.setKdocFieldTemplateConfig(new TemplateConfig());
+            config.setRecordComponentTemplateConfig(new TemplateConfig());
+            config.setGenAllRecordComponent(true);
             config.setCoverMode(EasyDocConfig.COVER_MODE_MERGE);
         }
         return config;

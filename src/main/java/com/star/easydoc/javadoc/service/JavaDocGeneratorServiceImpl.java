@@ -10,11 +10,13 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiField;
 import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiPackage;
+import com.intellij.psi.PsiRecordComponent;
 import com.star.easydoc.javadoc.service.generator.DocGenerator;
 import com.star.easydoc.javadoc.service.generator.impl.ClassDocGenerator;
 import com.star.easydoc.javadoc.service.generator.impl.FieldDocGenerator;
 import com.star.easydoc.javadoc.service.generator.impl.MethodDocGenerator;
 import com.star.easydoc.javadoc.service.generator.impl.PackageInfoDocGenerator;
+import com.star.easydoc.javadoc.service.generator.impl.RecordComponentDocGenerator;
 import com.star.easydoc.service.DocGeneratorService;
 import org.apache.commons.lang3.StringUtils;
 
@@ -30,6 +32,7 @@ public class JavaDocGeneratorServiceImpl implements DocGeneratorService {
         .put(PsiMethod.class, new MethodDocGenerator())
         .put(PsiField.class, new FieldDocGenerator())
         .put(PsiPackage.class, new PackageInfoDocGenerator())
+        .put(PsiRecordComponent.class, new RecordComponentDocGenerator())
         .build();
 
     @Override

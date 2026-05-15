@@ -10,6 +10,7 @@ import com.google.common.collect.Maps;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiRecordComponent;
 import com.intellij.psi.javadoc.PsiDocComment;
 import com.intellij.util.ResourceUtil;
 import com.star.easydoc.common.Consts;
@@ -18,6 +19,7 @@ import com.star.easydoc.config.EasyDocConfig;
 import com.star.easydoc.config.EasyDocConfigComponent;
 import com.star.easydoc.javadoc.service.variable.JavadocVariableGeneratorService;
 import com.star.easydoc.service.gpt.GptService;
+import com.star.easydoc.service.translator.TranslatorService;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 
@@ -33,6 +35,7 @@ public class ClassDocGenerator extends AbstractDocGenerator {
     private GptService gptService = ServiceManager.getService(GptService.class);
     private JavadocVariableGeneratorService javadocVariableGeneratorService = ServiceManager.getService(
         JavadocVariableGeneratorService.class);
+    private TranslatorService translatorService = ServiceManager.getService(TranslatorService.class);
 
     /** 默认模板 */
     private static final String DEFAULT_TEMPLATE = "/**\n"
@@ -65,6 +68,9 @@ public class ClassDocGenerator extends AbstractDocGenerator {
         }
         String targetJavadoc = javadocVariableGeneratorService.generate(psiClass, template,
             config.getClassTemplateConfig().getCustomMap(), getClassInnerVariable(psiClass));
+        if (psiClass.isRecord()) {
+            targetJavadoc = injectRecordComponentParams(psiClass, targetJavadoc);
+        }
         return merge(psiClass, targetJavadoc);
     }
 
@@ -92,6 +98,26 @@ public class ClassDocGenerator extends AbstractDocGenerator {
         prompt = prompt.replace("{code}", psiElement.getText());
         // 调用GPT服务并返回结果
         return gptService.chat(prompt);
+    }
+
+    /**
+     * 为Record类注入@param标签
+     */
+    private String injectRecordComponentParams(PsiClass psiClass, String javadoc) {
+        PsiRecordComponent[] components = psiClass.getRecordComponents();
+        if (components.length == 0) {
+            return javadoc;
+        }
+        StringBuilder params = new StringBuilder();
+        for (PsiRecordComponent component : components) {
+            String desc = translatorService.translate(component.getName(), psiClass);
+            params.append("\n * @param ").append(component.getName()).append(" ").append(desc);
+        }
+        int idx = javadoc.lastIndexOf("*/");
+        if (idx < 0) {
+            return javadoc;
+        }
+        return javadoc.substring(0, idx) + params.toString() + "\n " + javadoc.substring(idx);
     }
 
     /**

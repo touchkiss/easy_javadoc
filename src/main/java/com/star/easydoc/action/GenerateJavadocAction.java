@@ -19,6 +19,7 @@ import com.intellij.psi.PsiElementFactory;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiJavaFile;
 import com.intellij.psi.PsiPackage;
+import com.intellij.psi.PsiRecordComponent;
 import com.intellij.psi.javadoc.PsiDocComment;
 import com.intellij.util.messages.MessageBusConnection;
 import com.star.easydoc.common.util.LanguageUtil;
@@ -142,7 +143,18 @@ public class GenerateJavadocAction extends AnAction {
         if (psiElement == null || psiElement.getNode() == null) {
             return;
         }
-        String comment = javaDocGeneratorService.generate(psiElement);
+
+        // Record组件无法独立持有Javadoc，重定向到所在的Record类
+        PsiElement effectiveElement = psiElement;
+        if (psiElement instanceof PsiRecordComponent) {
+            PsiElement containingClass = ((PsiRecordComponent)psiElement).getContainingClass();
+            if (containingClass == null) {
+                return;
+            }
+            effectiveElement = containingClass;
+        }
+
+        String comment = javaDocGeneratorService.generate(effectiveElement);
         if (StringUtils.isEmpty(comment)) {
             return;
         }
@@ -150,7 +162,7 @@ public class GenerateJavadocAction extends AnAction {
         PsiElementFactory factory = PsiElementFactory.SERVICE.getInstance(project);
         PsiDocComment psiDocComment = factory.createDocCommentFromText(comment);
 
-        writerService.writeJavadoc(project, psiElement, psiDocComment, StringUtil.endCount(comment, '\n'));
+        writerService.writeJavadoc(project, effectiveElement, psiDocComment, StringUtil.endCount(comment, '\n'));
     }
 
     /**
