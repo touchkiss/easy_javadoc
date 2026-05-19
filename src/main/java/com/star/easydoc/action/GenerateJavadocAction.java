@@ -1,5 +1,9 @@
 package com.star.easydoc.action;
 
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
@@ -8,19 +12,24 @@ import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationActivationListener;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.ServiceManager;
+import com.intellij.openapi.editor.Caret;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Disposer;
 import com.intellij.psi.JavaDirectoryService;
+import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiComment;
 import com.intellij.psi.PsiDirectory;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementFactory;
+import com.intellij.psi.PsiField;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiJavaFile;
+import com.intellij.psi.PsiMethod;
 import com.intellij.psi.PsiPackage;
 import com.intellij.psi.PsiRecordComponent;
 import com.intellij.psi.javadoc.PsiDocComment;
+import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.util.messages.MessageBusConnection;
 import com.star.easydoc.common.util.LanguageUtil;
 import com.star.easydoc.common.util.StringUtil;
@@ -103,6 +112,12 @@ public class GenerateJavadocAction extends AnAction {
             }
         }
 
+        // 多光标（Option+鼠标）批量生成注释
+        if (editor != null && editor.getCaretModel().getCaretCount() > 1 && psiFile instanceof PsiJavaFile) {
+            handleMultiCaretJavadoc(project, (PsiJavaFile)psiFile, editor);
+            return;
+        }
+
         if (psiFile == null || psiElement == null) {
             return;
         }
@@ -113,6 +128,27 @@ public class GenerateJavadocAction extends AnAction {
             kdocProcess(project, (KtFile)psiFile, psiElement);
         }
 
+    }
+
+    /**
+     * 多光标批量生成Javadoc：收集每个光标所在的PSI元素，逐一生成注释
+     */
+    private void handleMultiCaretJavadoc(Project project, PsiJavaFile psiFile, Editor editor) {
+        List<Caret> carets = editor.getCaretModel().getAllCarets();
+        Set<PsiElement> targets = new LinkedHashSet<>();
+        for (Caret caret : carets) {
+            PsiElement elementAt = psiFile.findElementAt(caret.getOffset());
+            if (elementAt == null) {
+                continue;
+            }
+            PsiElement target = PsiTreeUtil.getParentOfType(elementAt, PsiField.class, PsiMethod.class, PsiClass.class);
+            if (target != null) {
+                targets.add(target);
+            }
+        }
+        for (PsiElement element : targets) {
+            javadocProcess(project, psiFile, element);
+        }
     }
 
     /**
