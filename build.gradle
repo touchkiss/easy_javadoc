@@ -51,7 +51,7 @@ repositories {
 // See https://github.com/JetBrains/gradle-intellij-plugin/
 // See https://www.jetbrains.com/intellij-repository/releases
 intellij {
-    plugins = ['Kotlin', 'java']
+    plugins = ['Kotlin', 'java', 'protoeditor']
 //    plugins 'java'
     version='2024.1'
     type='IU'

@@ -1,5 +1,7 @@
 package com.star.easydoc.action;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -113,8 +115,23 @@ public class GenerateJavadocAction extends AnAction {
         }
 
         // 多光标（Option+鼠标）批量生成注释
-        if (editor != null && editor.getCaretModel().getCaretCount() > 1 && psiFile instanceof PsiJavaFile) {
-            handleMultiCaretJavadoc(project, (PsiJavaFile)psiFile, editor);
+        if (editor != null && editor.getCaretModel().getCaretCount() > 1) {
+            if (psiFile instanceof PsiJavaFile) {
+                handleMultiCaretJavadoc(project, (PsiJavaFile)psiFile, editor);
+                return;
+            }
+            if (psiFile != null && "protobuf".equalsIgnoreCase(psiFile.getLanguage().getID())) {
+                handleMultiCaretProto(project, psiFile, editor);
+                return;
+            }
+        }
+
+        // Proto 文件支持（软依赖隔离：ProtobufDocHandler 仅在 protoeditor 插件存在时加载）
+        if (psiFile != null && "protobuf".equalsIgnoreCase(psiFile.getLanguage().getID())) {
+            PsiElement elementAt = (editor != null)
+                ? psiFile.findElementAt(editor.getCaretModel().getOffset())
+                : psiElement;
+            protoProcess(project, psiFile, elementAt);
             return;
         }
 
@@ -148,6 +165,28 @@ public class GenerateJavadocAction extends AnAction {
         }
         for (PsiElement element : targets) {
             javadocProcess(project, psiFile, element);
+        }
+    }
+
+    /**
+     * 多光标批量生成 Proto 注释：收集每个光标所在的叶子元素，按偏移量降序处理。
+     * 降序是关键：从最后一个元素开始插入，每次插入不会影响前面元素的 PSI 偏移，
+     * 避免 PSI 未提交导致后续插入位置偏移错乱。
+     */
+    private void handleMultiCaretProto(Project project, PsiFile psiFile, Editor editor) {
+        List<Caret> carets = editor.getCaretModel().getAllCarets();
+        List<PsiElement> targets = new ArrayList<>();
+        Set<Integer> seenOffsets = new LinkedHashSet<>();
+        for (Caret caret : carets) {
+            PsiElement elementAt = psiFile.findElementAt(caret.getOffset());
+            if (elementAt != null && seenOffsets.add(elementAt.getTextRange().getStartOffset())) {
+                targets.add(elementAt);
+            }
+        }
+        // Process highest offset first so earlier inserts don't corrupt lower PSI positions
+        targets.sort(Comparator.comparingInt((PsiElement e) -> e.getTextRange().getStartOffset()).reversed());
+        for (PsiElement elementAt : targets) {
+            protoProcess(project, psiFile, elementAt);
         }
     }
 
@@ -218,5 +257,13 @@ public class GenerateJavadocAction extends AnAction {
         PsiComment psiDocComment = factory.createComment(comment);
 
         writerService.writeKdoc(project, (KtElement)psiElement, (KDoc)psiDocComment);
+    }
+
+    /**
+     * Proto 文件注释处理。
+     * 委托给 ProtobufDocHandler，利用 JVM 懒加载保证在 protoeditor 插件缺失时不崩溃。
+     */
+    private void protoProcess(Project project, PsiFile psiFile, PsiElement psiElement) {
+        new com.star.easydoc.proto.ProtobufDocHandler().handle(project, psiFile, psiElement);
     }
 }

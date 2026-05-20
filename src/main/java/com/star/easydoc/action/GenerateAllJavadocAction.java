@@ -11,6 +11,7 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.LangDataKeys;
 import com.intellij.openapi.components.ServiceManager;
+import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.JavaDirectoryService;
 import com.intellij.psi.PsiClass;
@@ -59,17 +60,28 @@ public class GenerateAllJavadocAction extends AnAction {
     @Override
     public void actionPerformed(@NotNull AnActionEvent e) {
         Project project = e.getData(LangDataKeys.PROJECT);
-        // 前置规则校验
         PsiElement psiElement = e.getData(LangDataKeys.PSI_ELEMENT);
         PsiFile psiFile = e.getData(LangDataKeys.PSI_FILE);
-        if (psiFile == null || psiElement == null) {
+        if (psiFile == null) {
             return;
         }
 
         if (psiFile instanceof PsiJavaFile) {
+            if (psiElement == null) {
+                return;
+            }
             javadocProcess(project, psiFile, psiElement);
         } else if (psiFile instanceof KtFile) {
+            if (psiElement == null) {
+                return;
+            }
             kdocProcess(project, (KtFile)psiFile, (KtElement)psiElement);
+        } else if ("protobuf".equalsIgnoreCase(psiFile.getLanguage().getID())) {
+            Editor editor = e.getData(LangDataKeys.EDITOR);
+            PsiElement elementAt = (editor != null)
+                ? psiFile.findElementAt(editor.getCaretModel().getOffset())
+                : psiElement;
+            new com.star.easydoc.proto.ProtobufMembersHandler().handle(project, psiFile, elementAt);
         }
     }
 
