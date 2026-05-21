@@ -1,11 +1,14 @@
 package com.star.easydoc.service;
 
+import java.util.List;
+
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.EditorModificationUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiElementFactory;
 import com.intellij.psi.PsiJavaDocumentedElement;
 import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.psi.impl.source.tree.PsiWhiteSpaceImpl;
@@ -24,6 +27,70 @@ import org.jetbrains.kotlin.psi.KtElement;
  */
 public class WriterService {
     private static final Logger LOGGER = Logger.getInstance(WriterService.class);
+
+    /** 批量写入的数据单元，commentText 为原始字符串，避免在后台线程创建 PsiDocComment */
+    public static final class WriteEntry {
+        final PsiElement element;
+        final String commentText;
+        final int newlineCount;
+
+        public WriteEntry(PsiElement element, String commentText, int newlineCount) {
+            this.element = element;
+            this.commentText = commentText;
+            this.newlineCount = newlineCount;
+        }
+    }
+
+    /**
+     * 批量写入 Javadoc，在单次 WriteCommandAction 内完成，产生单条撤销记录。
+     * 必须在 EDT 上调用（Task.Backgroundable.onSuccess 已保证）。
+     */
+    public void writeJavadocBatch(Project project, List<WriteEntry> entries) {
+        if (entries == null || entries.isEmpty()) {
+            return;
+        }
+        try {
+            WriteCommandAction.writeCommandAction(project)
+                .withName("Batch Generate Javadoc")
+                .run((ThrowableRunnable<Throwable>) () -> {
+                    PsiElementFactory factory = PsiElementFactory.SERVICE.getInstance(project);
+                    for (WriteEntry entry : entries) {
+                        if (!entry.element.isValid() || entry.element.getContainingFile() == null) {
+                            continue;
+                        }
+                        PsiDocComment comment = factory.createDocCommentFromText(entry.commentText);
+                        doWriteJavadoc(entry.element, comment, entry.newlineCount);
+                    }
+                });
+        } catch (Throwable throwable) {
+            LOGGER.error("batch write javadoc error", throwable);
+        }
+    }
+
+    private void doWriteJavadoc(PsiElement psiElement, PsiDocComment comment, int emptyLineNum) {
+        if (psiElement instanceof PsiJavaDocumentedElement) {
+            PsiDocComment existing = ((PsiJavaDocumentedElement) psiElement).getDocComment();
+            if (existing == null) {
+                psiElement.getNode().addChild(comment.getNode(), psiElement.getFirstChild().getNode());
+            } else {
+                existing.replace(comment);
+            }
+        }
+        CodeStyleManager codeStyleManager = CodeStyleManager.getInstance(psiElement.getProject());
+        PsiElement javadocElement = psiElement.getFirstChild();
+        int startOffset = javadocElement.getTextOffset();
+        int endOffset = startOffset + javadocElement.getText().length();
+        codeStyleManager.reformatText(psiElement.getContainingFile(), startOffset, endOffset + 1);
+        if (emptyLineNum > 0) {
+            PsiElement[] children = psiElement.getChildren();
+            if (children.length > 1 && children[1] instanceof PsiWhiteSpaceImpl) {
+                PsiWhiteSpaceImpl ws = (PsiWhiteSpaceImpl) children[1];
+                String space = StringUtils.repeat("\n", emptyLineNum + 1);
+                String exists = StringUtils.stripStart(ws.getText(), "\n");
+                ws.replaceWithText(space + exists);
+            }
+        }
+    }
 
     /**
      * 写入文档注释
